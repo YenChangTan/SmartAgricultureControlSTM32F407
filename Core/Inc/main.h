@@ -76,26 +76,25 @@ typedef struct{
 	GPIO_PinState IsSet;
 	uint32_t UpdateTimeStamp;
 	uint32_t TimeOut;
+	uint32_t TimeElapsed;
 }Output;
 
 typedef enum{
-	PumpA = 0,
-	ValveA,
-	PumpB,
+	ValveA = 0,
 	ValveB,
 	FertigationPump,
-	FertigationValve1,
 	FertigationValve2,
+	PumpAB,
+	FertigationValve1,
 	OutputCount
 }OutputEnum;
 
-#define OutPumpA &outputs[PumpA]
-#define OutValveA &outputs[ValveA]
-#define OutPumpB &outputs[PumpB]
-#define OutValveB &outputs[ValveB]
-#define OutFertigationPump &outputs[FertigationPump]
-#define OutFertigationValve1 &outputs[FertigationValve1]
-#define OutFertigationValve2 &outputs[FertigationValve2]
+#define OutValveA (&outputs[ValveA])
+#define OutValveB (&outputs[ValveB])
+#define OutFertigationPump (&outputs[FertigationPump])
+#define OutPumpAB (&outputs[PumpAB])
+#define OutFertigationValve1 (&outputs[FertigationValve1])
+#define OutFertigationValve2 (&outputs[FertigationValve2])
 
 typedef struct{
 	GPIO_TypeDef* Port;
@@ -112,15 +111,17 @@ typedef enum{
 	InputCount
 }InputEnum;
 
-#define InMixedWaterLow inputs[MixedWaterLow]
-#define InMixedWaterHigh inputs[MixedWaterHigh]
-#define InMixedWaterLimit inputs[MixedWaterLimit]
-#define InCleanWaterLow inputs[CleanWaterLow]
-#define InABLow inputs[ABLow]
+#define InMixedWaterLow (&inputs[MixedWaterLow])
+#define InMixedWaterHigh (&inputs[MixedWaterHigh])
+#define InMixedWaterLimit (&inputs[MixedWaterLimit])
+#define InCleanWaterLow (&inputs[CleanWaterLow])
+#define InABLow (&inputs[ABLow])
 
 typedef struct{
 	uint32_t ManualOutputAutoResetTimeOut;
+	uint32_t currentTick;
 	uint32_t TimeStamp;
+	uint32_t TimeElapsed;
 	uint32_t ABDelay;
 	uint32_t ABTimeStamp;
 	SystemState currentState;
@@ -135,6 +136,7 @@ typedef enum{
 	TCP_STATE_WAITING_RESPONSE,
 	TCP_STATE_RECEIVING,
 	TCP_STATE_RX_COMPLETE,
+	TCP_STATE_ERROR
 }TCPState;
 
 typedef struct{
@@ -151,6 +153,7 @@ typedef struct{
 	uint32_t timeStamp;
 	uint32_t delayTime;
 	TCPState tcpState;
+	uint8_t maxErrorCount;
 }TCPContext;
 /* USER CODE END Private defines */
 

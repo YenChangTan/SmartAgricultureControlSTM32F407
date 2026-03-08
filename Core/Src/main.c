@@ -51,31 +51,31 @@ ModbusMaster mb2;
 TCPContext tcpContext = {0};
 
 static Output outputs[OutputCount] = {
-    [PumpA] = {GPIOA, GPIO_PIN_12, GPIO_PIN_RESET, 0},
     [ValveA] = {GPIOA, GPIO_PIN_11, GPIO_PIN_RESET, 0},
-    [PumpB] = {GPIOA, GPIO_PIN_8, GPIO_PIN_RESET, 0},
-    [ValveB] = {GPIOC, GPIO_PIN_9, GPIO_PIN_RESET, 0},
-    [FertigationPump] = {GPIOB, GPIO_PIN_3, GPIO_PIN_RESET, 0},
-    [FertigationValve1] = {GPIOB, GPIO_PIN_4, GPIO_PIN_RESET, 0},
-    [FertigationValve2] = {GPIOB, GPIO_PIN_5, GPIO_PIN_RESET, 0},
+    [ValveB] = {GPIOA, GPIO_PIN_12, GPIO_PIN_RESET, 0},
+	[FertigationPump] = {GPIOC, GPIO_PIN_9, GPIO_PIN_RESET, 0},
+    [FertigationValve2] = {GPIOB, GPIO_PIN_4, GPIO_PIN_RESET, 0},
+	[PumpAB] = {GPIOB, GPIO_PIN_5, GPIO_PIN_RESET, 0},
+    [FertigationValve1] = {GPIOB, GPIO_PIN_6, GPIO_PIN_RESET, 0},
+
 };
 
 static Input inputs[InputCount] = {
-    [MixedWaterLow] = {GPIOD, GPIO_PIN_0, GPIO_PIN_RESET},
-    [MixedWaterHigh] = {GPIOD, GPIO_PIN_1, GPIO_PIN_RESET},
-    [MixedWaterLimit] = {GPIOD, GPIO_PIN_2, GPIO_PIN_RESET},
-	[CleanWaterLow] = {GPIOD, GPIO_PIN_3, GPIO_PIN_RESET},
-	[ABLow] = {GPIOD, GPIO_PIN_4, GPIO_PIN_RESET}
+    [MixedWaterLow] = {GPIOD, GPIO_PIN_8, GPIO_PIN_RESET},
+    [MixedWaterHigh] = {GPIOD, GPIO_PIN_10, GPIO_PIN_RESET},
+    [MixedWaterLimit] = {GPIOD, GPIO_PIN_12, GPIO_PIN_RESET},
+	[CleanWaterLow] = {GPIOD, GPIO_PIN_14, GPIO_PIN_RESET},
+	[ABLow] = {GPIOD, GPIO_PIN_0, GPIO_PIN_RESET}
 };
 
 static Output TCPDirectionalPin = {GPIOC, GPIO_PIN_4, GPIO_PIN_RESET,0};
 uint8_t test;
 
-static uint32_t CleanWaterWateringTimeOut = 3600000;
-static uint32_t MixedWaterWateringTimeOut = 3600000;
-static uint32_t CleanWaterFillingStopbyTimingTimeOut = 3600000;
-static uint32_t CleanWaterFillingStopbyHighSensorTimeOut = 3600000;
-static uint32_t ABFertilizerAddingbyECTimeOut = 3600000;
+static uint32_t CleanWaterWateringTimeOut = 720000;
+static uint32_t MixedWaterWateringTimeOut = 720000;
+static uint32_t CleanWaterFillingStopbyTimingTimeOut = 720000;
+static uint32_t CleanWaterFillingStopbyHighSensorTimeOut = 720000;
+static uint32_t ABFertilizerAddingbyECTimeOut = 720000;
 static uint32_t* timeoutList[5] = {
     &CleanWaterWateringTimeOut,
     &MixedWaterWateringTimeOut,
@@ -85,7 +85,7 @@ static uint32_t* timeoutList[5] = {
 };
 
 
-static uint32_t TargetEC = 0;
+static float TargetEC = 2300;
 
 static uint32_t mb2slave1PPT32 = 0;
 static float mb2slave1PPT = 0;
@@ -104,11 +104,11 @@ static uint32_t currentVolumeA = 0;
 static uint32_t currentVolumeB = 0;
 static uint32_t targetVolumeA = 0;
 static uint32_t targetVolumeB = 0;
-static uint32_t targetVolumeIncrement = 500;
+static uint32_t targetVolumeIncrement = 300;
 
 static uint32_t mb2slave2CurrentFlowRateA = 0;
 static uint32_t mb2slave3CurrentFlowRateB = 0;
-
+static uint32_t testInt = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -142,14 +142,12 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
 		ModbusMaster_UART_TxCpltCallback(&mb2);
 	}
 	else if (huart->Instance == USART6){
-		if(tcpContext.tcpState == TCP_STATE_TX_COMPLETE){
-			//WriteTCPDirectionalPin(GPIO_PIN_RESET);
-			tcpContext.tcpState = TCP_STATE_WAITING_RESPONSE;
-			tcpContext.timeStamp = HAL_GetTick();
-			//tcpContext.txBufferCount = 0;
-			tcpContext.rxBufferCount = 0;
-			HAL_UART_Receive_IT(&huart6, &tcpContext.rxSingleByte, 1);
-		}
+		//WriteTCPDirectionalPin(GPIO_PIN_RESET);
+		tcpContext.tcpState = TCP_STATE_WAITING_RESPONSE;
+		tcpContext.timeStamp = HAL_GetTick();
+		//tcpContext.txBufferCount = 0;
+		tcpContext.rxBufferCount = 0;
+		HAL_UART_Receive_IT(&huart6, &tcpContext.rxSingleByte, 1);
 	}
 }
 
@@ -211,7 +209,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
   IOListInit();
   ModbusMaster_Init(&mb2,&huart2, GPIOC, GPIO_PIN_4);
-  ModbusMaster_AddReadQueue(&mb2, 1, 0, 6, 500, 1000, 1000);
+  ModbusMaster_AddReadQueue(&mb2, 1, 0, 6, 500, 300, 300);
+  ModbusMaster_AddReadQueue(&mb2, 2, 13, 4, 500, 300, 300);
+  ModbusMaster_AddReadQueue(&mb2, 3, 13, 4, 500, 300, 300);
     //ModbusMaster_AddReadQueue(&mb2, 2, 0, 8, 10000, 1000, 1000);
   ModbusMaster_UpdateReadTransaction(&mb2);
   /* USER CODE END 2 */
@@ -225,6 +225,8 @@ int main(void)
 	  IOListUpdate();
 	  UpdateTCP();
 	  StateUpdate();
+	  systemContext.currentTick = HAL_GetTick();
+
 	  //HAL_UART_Transmit(&huart6, toSend,2, 3000);
 	  //HAL_Delay(100);
     /* USER CODE END WHILE */
@@ -420,12 +422,12 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 static void SystemConfigInit(void){
 	systemContext.currentState = STATE_IDLE;
-	systemContext.ManualOutputAutoResetTimeOut = 5000;
-	systemContext.ABDelay = 5000;
+	systemContext.ManualOutputAutoResetTimeOut = 1800000;
+	systemContext.ABDelay = 10000;
 }
 
 static void TCPContextInit(void){
-	tcpContext.delayTime = 100;
+	tcpContext.delayTime = 300;
 	tcpContext.errorCount = 0;
 	tcpContext.rxBufferCount = 0;
 	tcpContext.rxTimeOut = 1000;
@@ -453,7 +455,9 @@ static void UpdateTCP(){
 	switch(tcpContext.tcpState){
 	case TCP_STATE_IDLE:
 		if(HAL_GetTick()-tcpContext.timeStamp> tcpContext.delayTime){
+			HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
 			tcpContext.txBufferCount = 0;
+			tcpContext.rxBufferCount = 0;
 			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)systemContext.currentState;
 			uint16_t outputMask = 0;
 			for (int i=0; i < OutputCount;i++){
@@ -465,7 +469,7 @@ static void UpdateTCP(){
 			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(outputMask>>8);
 			uint16_t inputMask = 0;
 			for (int i=0; i < InputCount;i++){
-				if (inputs[i].IsSet){
+				if (inputs[i].IsSet == GPIO_PIN_SET){
 					inputMask |=(uint8_t)(1<<i);
 				}
 			}
@@ -480,14 +484,16 @@ static void UpdateTCP(){
 
 			}
 			tcpContext.txBufferCount++;
-			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(TargetEC);
-			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(TargetEC>>8);
-			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(TargetEC>>16);
-			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(TargetEC>>24);
-			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(mb2slave1Temp32);
-			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(mb2slave1Temp32>>8);
-			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(mb2slave1Temp32>>16);
-			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(mb2slave1Temp32>>24);
+			uint32_t ecValue = 0;
+			memcpy(&ecValue, &TargetEC, sizeof(ecValue));
+			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(ecValue);
+			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(ecValue>>8);
+			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(ecValue>>16);
+			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(ecValue>>24);
+			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(mb2slave1EC32);
+			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(mb2slave1EC32>>8);
+			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(mb2slave1EC32>>16);
+			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(mb2slave1EC32>>24);
 			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(mb2slave2CurrentFlowRateA);
 			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(mb2slave2CurrentFlowRateA>>8);
 			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(mb2slave2CurrentFlowRateA>>16);
@@ -504,6 +510,10 @@ static void UpdateTCP(){
 			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(currentVolumeB>>8);
 			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(currentVolumeB>>16);
 			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(currentVolumeB>>24);
+			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(systemContext.TimeElapsed);
+			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(systemContext.TimeElapsed>>8);
+			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(systemContext.TimeElapsed>>16);
+			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(systemContext.TimeElapsed>>24);
 			uint16_t calculatedCRC = CRC16privateFunction(tcpContext.txBuffer,tcpContext.txBufferCount);
 			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(calculatedCRC);
 			tcpContext.txBuffer[tcpContext.txBufferCount++] = (uint8_t)(calculatedCRC>>8);
@@ -519,6 +529,12 @@ static void UpdateTCP(){
 			tcpContext.txBufferCount = 0;
 			tcpContext.errorCount +=1;
 			HAL_UART_AbortTransmit(&huart6);
+			tcpContext.timeStamp = HAL_GetTick();
+			if(tcpContext.errorCount>tcpContext.maxErrorCount){
+
+				tcpContext.tcpState = TCP_STATE_ERROR;
+				tcpContext.timeStamp = HAL_GetTick();
+			}
 			//WriteTCPDirectionalPin(GPIO_PIN_RESET);
 		}
 		break;
@@ -527,15 +543,24 @@ static void UpdateTCP(){
 			tcpContext.tcpState = TCP_STATE_IDLE;
 			tcpContext.errorCount +=1;
 			HAL_UART_AbortReceive(&huart6);
+			tcpContext.timeStamp = HAL_GetTick();
+			if(tcpContext.errorCount>tcpContext.maxErrorCount){
+
+				tcpContext.tcpState = TCP_STATE_ERROR;
+				tcpContext.timeStamp = HAL_GetTick();
+			}
 		}
 		break;
 	case TCP_STATE_RECEIVING:
-		if (tcpContext.rxBufferCount > 0 && (HAL_GetTick()-tcpContext.timeStamp) > tcpContext.intercharTimeOut){
+		if (tcpContext.rxBufferCount > 0 && ((HAL_GetTick()-tcpContext.timeStamp) > tcpContext.intercharTimeOut)){
 			uint16_t calculatedCRC = CRC16privateFunction(tcpContext.rxBuffer,tcpContext.rxBufferCount);
-			if(calculatedCRC !=0 || tcpContext.rxBufferCount != tcpContext.txBufferCount){
+			HAL_UART_AbortReceive(&huart6);
+			if(calculatedCRC !=0 || tcpContext.rxBufferCount != 61){
+				tcpContext.tcpState = TCP_STATE_IDLE;
+				tcpContext.errorCount++;
 				break;
 			}
-			HAL_UART_AbortReceive(&huart6);
+
 			uint8_t byteCount = 0;
 			uint8_t commandReceived = 0;
 			commandReceived = tcpContext.rxBuffer[byteCount++];
@@ -574,15 +599,35 @@ static void UpdateTCP(){
 				ecValue |= tcpContext.rxBuffer[byteCount++]<<8;
 				ecValue |= tcpContext.rxBuffer[byteCount++]<<16;
 				ecValue |= tcpContext.rxBuffer[byteCount++]<<24;
-				TargetEC= ecValue;
+				memcpy(&TargetEC, &ecValue, sizeof(ecValue));
 			}
 			else{
 				byteCount+=4;
 			}
-			byteCount+=20;
+			byteCount+=24;
 			tcpContext.tcpState = TCP_STATE_IDLE;
 			tcpContext.errorCount = 0;
 		}
+		break;
+
+	case TCP_STATE_ERROR:
+		if(HAL_GetTick() - tcpContext.timeStamp > 2000) { // 5 second cooldown
+			tcpContext.rxBufferCount = 0;
+			tcpContext.tcpState = TCP_STATE_IDLE;
+			tcpContext.txBufferCount = 0;
+			tcpContext.rxBufferCount = 0;
+			tcpContext.timeStamp = HAL_GetTick();
+			tcpContext.errorCount = 0;
+			break;
+		}
+		else{
+			HAL_UART_AbortTransmit(&huart6);
+			HAL_UART_AbortReceive(&huart6);
+		}
+		if(systemContext.currentState == STATE_IDLE){
+			ResetAllIO();
+		}
+		break;
 	}
 }
 
@@ -599,93 +644,188 @@ static void StateMachineRunning(void){
 		}
 		break;
 	case STATE_CLEAN_WATER_WATERING:
+		static uint8_t ErrorCount = 0;
 		WriteOutput(OutFertigationPump, GPIO_PIN_SET);
 		WriteOutput(OutFertigationValve1, GPIO_PIN_SET);
-		WriteOutput(OutFertigationValve2, GPIO_PIN_SET);
+		WriteOutput(OutFertigationValve2, GPIO_PIN_RESET);
 		if(HAL_GetTick()-systemContext.TimeStamp > CleanWaterWateringTimeOut){
+			ErrorCount = 0;
 			systemContext.currentState = STATE_ABORT;
 		}
-		else if(InCleanWaterLow.IsSet){
-			systemContext.currentState = STATE_ERROR;
+		else if(InCleanWaterLow->IsSet == 0){
+			if(ErrorCount>10){
+				systemContext.currentState = STATE_ERROR;
+				ErrorCount = 0;
+			}
+			else{
+				ErrorCount = 0;
+			}
 		}
+		else{
+			ErrorCount = 0;
+		}
+		systemContext.TimeElapsed = HAL_GetTick()-systemContext.TimeStamp;
 		break;
 	case STATE_MIXED_WATER_WATERING:
+		static uint8_t ErrorCountMixedWater = 0;
 		WriteOutput(OutFertigationPump, GPIO_PIN_SET);
 		WriteOutput(OutFertigationValve1, GPIO_PIN_RESET);
-		WriteOutput(OutFertigationValve2, GPIO_PIN_SET);
+		WriteOutput(OutFertigationValve2, GPIO_PIN_RESET);
 		if(HAL_GetTick()-systemContext.TimeStamp > MixedWaterWateringTimeOut){
+			ErrorCountMixedWater = 0;
 			systemContext.currentState = STATE_ABORT;
 		}
-		else if(InCleanWaterLow.IsSet){
-			systemContext.currentState = STATE_ERROR;
+		else if(InMixedWaterLow->IsSet == GPIO_PIN_RESET){
+			if(ErrorCountMixedWater>10){
+				systemContext.currentState = STATE_ABORT;
+				ErrorCountMixedWater = 0;
+			}
+			else{
+				ErrorCountMixedWater++;
+			}
+
 		}
+		else{
+			ErrorCountMixedWater = 0;
+		}
+		systemContext.TimeElapsed = HAL_GetTick()-systemContext.TimeStamp;
 		break;
 
 	case STATE_CLEAN_WATER_FILLING_TIMING:
 		WriteOutput(OutFertigationPump, GPIO_PIN_SET);
 		WriteOutput(OutFertigationValve1, GPIO_PIN_SET);
-		WriteOutput(OutFertigationValve2, GPIO_PIN_RESET);
+		WriteOutput(OutFertigationValve2, GPIO_PIN_SET);
 		if(HAL_GetTick()-systemContext.TimeStamp > CleanWaterFillingStopbyTimingTimeOut){
 			systemContext.currentState = STATE_ABORT;
 		}
-		else if(InCleanWaterLow.IsSet){
+		else if(InCleanWaterLow->IsSet == GPIO_PIN_RESET){
 			systemContext.currentState = STATE_ERROR;
 		}
-		else if(InMixedWaterLimit.IsSet){
+		else if(InMixedWaterLimit->IsSet == GPIO_PIN_SET){
 			systemContext.currentState = STATE_ERROR;
 		}
+		systemContext.TimeElapsed = HAL_GetTick()-systemContext.TimeStamp;
 		break;
 	case STATE_CLEAN_WATER_FILLING_EC:
+		static uint8_t HighSensorTriggerCounter = 0;
 		WriteOutput(OutFertigationPump, GPIO_PIN_SET);
 		WriteOutput(OutFertigationValve1, GPIO_PIN_SET);
-		WriteOutput(OutFertigationValve2, GPIO_PIN_RESET);
+		WriteOutput(OutFertigationValve2, GPIO_PIN_SET);
 		if(HAL_GetTick()-systemContext.TimeStamp > CleanWaterFillingStopbyHighSensorTimeOut){
 			systemContext.currentState = STATE_ABORT;
 		}
-		else if(InCleanWaterLow.IsSet){
+		else if(InMixedWaterHigh->IsSet == GPIO_PIN_SET){
+			if(HighSensorTriggerCounter > 10){
+				systemContext.currentState = STATE_ABORT;
+				HighSensorTriggerCounter = 0;
+			}
+			else{
+				HighSensorTriggerCounter ++;
+			}
+		}
+		else if(InMixedWaterLimit->IsSet){
 			systemContext.currentState = STATE_ERROR;
+			HighSensorTriggerCounter = 0;
 		}
-		else if(InMixedWaterHigh.IsSet){
-			systemContext.currentState = STATE_ABORT;
-		}
-		else if(InMixedWaterLimit.IsSet){
-			systemContext.currentState = STATE_ERROR;
-		}
+		systemContext.TimeElapsed = HAL_GetTick()-systemContext.TimeStamp;
 		break;
 	case STATE_A_B_FERTILIZER_ADDING:
-		if (OutPumpA.IsSet && OutPumpB.IsSet) {
-			if (mb2slave2AccumulateVolumeA-StampVolumeA>= targetVolumeA) {
-				WriteOutput(OutPumpA, GPIO_PIN_RESET);  // Turn OFF A
-				WriteOutput(OutValveA, GPIO_PIN_RESET);
+		static uint32_t ReachTargetTime = 0;
+		WriteOutput(OutFertigationPump, GPIO_PIN_SET);
+		WriteOutput(OutFertigationValve1, GPIO_PIN_RESET);
+		WriteOutput(OutFertigationValve2, GPIO_PIN_SET);
+		if (OutValveA->IsSet == GPIO_PIN_SET && OutValveB->IsSet == GPIO_PIN_SET) {
+
+			if (mb2slave2AccumulateVolumeA>= targetVolumeA) {
+				WriteOutput(OutValveA, GPIO_PIN_RESET);  // Turn OFF A
+				systemContext.ABTimeStamp = HAL_GetTick();
 			}
-			if (mb2slave3AccumulateVolumeB-StampVolumeB>= targetVolumeB) {
-				WriteOutput(OutPumpB, GPIO_PIN_RESET);
-				WriteOutput(OutValveB, GPIO_PIN_RESET);
-			}
-		}
-		else if ((OutPumpA.IsSet || OutPumpB.IsSet)&& (OutPumpA.IsSet != OutPumpB.IsSet)) {
-			if ((mb2slave2AccumulateVolumeA-StampVolumeA>= targetVolumeA) && (mb2slave3AccumulateVolumeB-StampVolumeB>= targetVolumeB)) {
-				WriteOutput(OutPumpA, GPIO_PIN_RESET);  // Turn OFF A
-				WriteOutput(OutValveA, GPIO_PIN_RESET);
-				WriteOutput(OutPumpB, GPIO_PIN_RESET);
+			if (mb2slave3AccumulateVolumeB>= targetVolumeB) {
 				WriteOutput(OutValveB, GPIO_PIN_RESET);
 				systemContext.ABTimeStamp = HAL_GetTick();
 			}
+//			if(mb2slave1EC > TargetEC){
+//				WriteOutput(OutValveA, GPIO_PIN_RESET);
+//				WriteOutput(OutValveB, GPIO_PIN_RESET);
+//				WriteOutput(OutPumpAB, GPIO_PIN_RESET);
+//				systemContext.ABTimeStamp = HAL_GetTick();
+//			}
+//			if(mb2slave1EC > TargetEC){
+//				if(ReachTargetTime > 1000){
+//					WriteOutput(OutValveA, GPIO_PIN_RESET);
+//					WriteOutput(OutValveB, GPIO_PIN_RESET);
+//					WriteOutput(OutPumpAB, GPIO_PIN_RESET);
+//					systemContext.ABTimeStamp = HAL_GetTick();
+//					ReachTargetTime = 0;
+//				}
+//				else{
+//					ReachTargetTime ++;
+//				}
+//			}
+//			else{
+//				ReachTargetTime = 0;
+//			}
+		}
+		else if (OutValveA->IsSet == GPIO_PIN_SET || OutValveB->IsSet == GPIO_PIN_SET) {
+			//static uint32_t ReachTargetTime = 0;
+			if ((mb2slave2AccumulateVolumeA>= targetVolumeA) && (mb2slave3AccumulateVolumeB>= targetVolumeB)) {
+				WriteOutput(OutValveA, GPIO_PIN_RESET);
+				WriteOutput(OutValveB, GPIO_PIN_RESET);
+				WriteOutput(OutPumpAB, GPIO_PIN_RESET);
+				systemContext.ABTimeStamp = HAL_GetTick();
+			}
+//			if(mb2slave1EC > TargetEC){
+//				//if(ReachTargetTime > 1000){
+//					WriteOutput(OutValveA, GPIO_PIN_RESET);
+//					WriteOutput(OutValveB, GPIO_PIN_RESET);
+//					WriteOutput(OutPumpAB, GPIO_PIN_RESET);
+//					systemContext.ABTimeStamp = HAL_GetTick();
+//					//ReachTargetTime = 0;
+////				}
+////				else{
+////					ReachTargetTime ++;
+////				}
+//			}
+//			else{
+//				ReachTargetTime = 0;
+//			}
+//			if(mb2slave1EC > TargetEC){
+//				WriteOutput(OutValveA, GPIO_PIN_RESET);
+//				WriteOutput(OutValveB, GPIO_PIN_RESET);
+//				WriteOutput(OutPumpAB, GPIO_PIN_RESET);
+//				systemContext.ABTimeStamp = HAL_GetTick();
+//			}
 		}
 		else {
 			if(HAL_GetTick()-systemContext.ABTimeStamp>systemContext.ABDelay){
-				targetVolumeA+= targetVolumeIncrement;
-				targetVolumeB+= targetVolumeIncrement;
-				WriteOutput(OutPumpA, GPIO_PIN_SET);  // Turn OFF A
-				WriteOutput(OutValveA, GPIO_PIN_SET);
-				WriteOutput(OutPumpB, GPIO_PIN_SET);
-				WriteOutput(OutValveB, GPIO_PIN_SET);
+
+				if(mb2slave1EC > TargetEC){
+					if(HAL_GetTick()-systemContext.ABTimeStamp>60000){
+						systemContext.currentState = STATE_ABORT;
+					}
+				}
+				else{
+					if(mb2slave2AccumulateVolumeA>=targetVolumeA && mb2slave3AccumulateVolumeB>=targetVolumeB){
+						targetVolumeA+= targetVolumeIncrement;
+						targetVolumeB+= targetVolumeIncrement;
+					}
+					WriteOutput(OutPumpAB, GPIO_PIN_SET);  // Turn OFF A
+					WriteOutput(OutValveA, GPIO_PIN_SET);
+					WriteOutput(OutValveB, GPIO_PIN_SET);
+				}
+
+
+			}
+			else{
+				WriteOutput(OutPumpAB, GPIO_PIN_RESET);
+				WriteOutput(OutValveA, GPIO_PIN_RESET);
+				WriteOutput(OutValveB, GPIO_PIN_RESET);
 			}
 		}
 		if(HAL_GetTick()-systemContext.TimeStamp > ABFertilizerAddingbyECTimeOut){
 			systemContext.currentState = STATE_ERROR;
 		}
-		if(InMixedWaterLimit.IsSet){
+		if(InMixedWaterLimit->IsSet){
 			systemContext.currentState = STATE_ERROR;
 		}
 		if(mb2slave2AccumulateVolumeA == 0xFFFFFFFF){
@@ -694,11 +834,9 @@ static void StateMachineRunning(void){
 		if (mb2slave1EC == -1){
 			systemContext.currentState = STATE_ERROR;
 		}
-		if(mb2slave1EC > TargetEC){
-			systemContext.currentState = STATE_ABORT;
-		}
 		currentVolumeA = mb2slave2AccumulateVolumeA-StampVolumeA;
 		currentVolumeB = mb2slave3AccumulateVolumeB-StampVolumeB;
+		systemContext.TimeElapsed = HAL_GetTick()-systemContext.TimeStamp;
 		break;
 	case STATE_ABORT:
 		ResetAllIO();
@@ -767,7 +905,7 @@ static void ModbusTransmitSwitchDevice(void){
 			break;
 		case 10:
 			if (mb2.modbusState == MB_STATE_TIMEOUT || mb2.modbusState == MB_STATE_ERROR){
-				if (mb2.modbusReadQueue.requestQueue[mb2.modbusReadQueue.head].errorCount>20){
+				if (mb2.modbusReadQueue.requestQueue[mb2.modbusReadQueue.head].errorCount>5){
 					mb2slave1EC = -1;
 					memcpy(&mb2slave1EC32, &mb2slave1EC, sizeof(uint32_t));
 					mb2slave1Temp = -1;
@@ -790,9 +928,41 @@ static void ModbusTransmitSwitchDevice(void){
 			}
 			break;
 		case 11:
+			if (mb2.modbusState == MB_STATE_TIMEOUT || mb2.modbusState == MB_STATE_ERROR){
+				if (mb2.modbusReadQueue.requestQueue[mb2.modbusReadQueue.head].errorCount>5){
+					mb2slave2CurrentFlowRateA = 0xFFFFFFFF;
+					mb2slave2AccumulateVolumeA = 0xFFFFFFFF;
+				}
+				mb2.modbusReadQueue.head = (mb2.modbusReadQueue.head +1)%(mb2.modbusReadQueue.count);
+				modbusSwitchCase = 100;
+			}
+			if(mb2.modbusState == MB_STATE_RX_COMPLETE){
+				mb2slave2AccumulateVolumeA = mb2.modbusTransaction.data[0]<<16|mb2.modbusTransaction.data[1];
+				mb2slave2AccumulateVolumeA = mb2slave2AccumulateVolumeA*10;
+				mb2slave2CurrentFlowRateA = mb2.modbusTransaction.data[2]<<16|mb2.modbusTransaction.data[3];
+				mb2slave2CurrentFlowRateA = mb2slave2CurrentFlowRateA*10;
+				mb2.modbusReadQueue.head = (mb2.modbusReadQueue.head +1)%(mb2.modbusReadQueue.count);
+				modbusSwitchCase = 100;
+			}
 			break;
 		case 12:
-		  break;
+			if (mb2.modbusState == MB_STATE_TIMEOUT || mb2.modbusState == MB_STATE_ERROR){
+				if (mb2.modbusReadQueue.requestQueue[mb2.modbusReadQueue.head].errorCount>5){
+					mb2slave3CurrentFlowRateB = 0xFFFFFFFF;
+					mb2slave3AccumulateVolumeB = 0xFFFFFFFF;
+				}
+				mb2.modbusReadQueue.head = (mb2.modbusReadQueue.head +1)%(mb2.modbusReadQueue.count);
+				modbusSwitchCase = 100;
+			}
+			if(mb2.modbusState == MB_STATE_RX_COMPLETE){
+				mb2slave3AccumulateVolumeB = mb2.modbusTransaction.data[0]<<16|mb2.modbusTransaction.data[1];
+				mb2slave3AccumulateVolumeB = mb2slave3AccumulateVolumeB*10;
+				mb2slave3CurrentFlowRateB = mb2.modbusTransaction.data[2]<<16|mb2.modbusTransaction.data[3];
+				mb2slave3CurrentFlowRateB = mb2slave3CurrentFlowRateB*10;
+				mb2.modbusReadQueue.head = (mb2.modbusReadQueue.head +1)%(mb2.modbusReadQueue.count);
+				modbusSwitchCase = 100;
+			}
+			break;
 		case 20:
 			if (mb2.modbusState == MB_STATE_TIMEOUT || mb2.modbusState == MB_STATE_ERROR){
 				ModbusMaster_DeleteWriteQueue(&mb2);
@@ -831,7 +1001,13 @@ static void IOListUpdate(void){
 	}
 
 	for (int i= 0; i<InputCount;i++){
-		inputs[i].IsSet = !HAL_GPIO_ReadPin(inputs[i].Port, inputs[i].Pin);
+
+		if(HAL_GPIO_ReadPin(inputs[i].Port, inputs[i].Pin)){
+			inputs[i].IsSet = GPIO_PIN_RESET;
+		}
+		else{
+			inputs[i].IsSet = GPIO_PIN_SET;
+		}
 	}
 }
 
@@ -846,8 +1022,8 @@ static void StateUpdate(void) {
                 	StampVolumeB = mb2slave3AccumulateVolumeB;
                 	currentVolumeA = 0;
                 	currentVolumeB = 0;
-                	targetVolumeA = mb2slave2AccumulateVolumeA;
-                	targetVolumeB = mb2slave3AccumulateVolumeB;
+                	targetVolumeA = mb2slave2AccumulateVolumeA + targetVolumeIncrement;
+                	targetVolumeB = mb2slave3AccumulateVolumeB + targetVolumeIncrement;
                 	systemContext.ABTimeStamp = HAL_GetTick();
                 }
             	systemContext.currentState = systemContext.upcomingState;
